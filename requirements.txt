@@ -1,0 +1,13 @@
+langchain-core
+langchain-groq
+langgraph
+langchain-community
+requests
+python-dotenv
+pydantic
+twilio
+fastapi
+uvicorn
+python-multipart
+termcolor
+motor

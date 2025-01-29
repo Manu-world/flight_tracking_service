@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Flight Updates</title>
+    <style>
+        .flight-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+        }
+        .flight-card {
+            border: 1px solid #ccc;
+            padding: 1rem;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        .error {
+            color: red;
+            padding: 1rem;
+            border: 1px solid red;
+            margin: 1rem;
+            border-radius: 4px;
+            background-color: #fff5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Flight Updates</h1>
+    <div id="timestamp" class="timestamp"></div>
+    <div id="flights" class="flight-grid"></div>
+
+    <script>
+        function connectSSE() {
+            const flightsContainer = document.getElementById('flights');
+            const timestampContainer = document.getElementById('timestamp');
+            
+            const eventSource = new EventSource('http://127.0.0.1:8000/api/v1/flights/live/stream?flights=TB1011&limit=10');
+
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                // Update timestamp
+                if (data.timestamp) {
+                    timestampContainer.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+                }
+                
+                // Handle error messages
+                if (data.error) {
+                    flightsContainer.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                // Update flights
+                if (data.flights) {
+                    flightsContainer.innerHTML = data.flights.map(flight => `
+                        <div class="flight-card">
+                            <h3>${flight.callsign}</h3>
+                            <p>Flight: ${flight.flight_number || 'N/A'}</p>
+                            <p>Aircraft: ${flight.aircraft_type || 'N/A'}</p>
+                            <p>Registration: ${flight.registration || 'N/A'}</p>
+                            <p>Position:</p>
+                            <ul>
+                                <li>Lat: ${flight.position.lat}</li>
+                                <li>Lon: ${flight.position.lon}</li>
+                                <li>Altitude: ${flight.position.altitude} ft</li>
+                                <li>Speed: ${flight.position.ground_speed} knots</li>
+                            </ul>
+                        </div>
+                    `).join('');
+                }
+            };
+
+            eventSource.onerror = function(error) {
+                console.error('SSE Error:', error);
+                flightsContainer.innerHTML = '<div class="error">Connection lost. Reconnecting...</div>';
+            };
+
+            // Clean up on page unload
+            window.addEventListener('beforeunload', () => {
+                eventSource.close();
+            });
+        }
+
+        connectSSE();
+    </script>
+</body>
+</html>

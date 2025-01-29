@@ -1,0 +1,20 @@
+env
+.env
+
+.venv/
+# Python files
+app/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Application files
+app/api.py
+app/test.py
+static/
+
+# IDE and system files
+.vscode/
+.idea/
+.DS_Store
