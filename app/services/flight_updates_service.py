@@ -98,6 +98,10 @@ class FlightUpdateService:
         """
         Process and validate raw flight data into response models.
         """
+        # Handle case where raw_data is an empty list
+        if isinstance(raw_data, list):
+            return []
+        
         flights = []
         for item in raw_data.get("data", []):
             try:
