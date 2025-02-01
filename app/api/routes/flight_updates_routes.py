@@ -6,6 +6,7 @@ from app.core.exceptions import ValidationError
 from fastapi.responses import StreamingResponse
 import asyncio
 from app.core.dependencies import get_current_user  # Import the auth dependency
+from app.db.database_service import DBService  # Add this import
 
 router = APIRouter(tags=["Flight"])
 
@@ -24,6 +25,13 @@ async def get_live_flights(
         bounds=bounds,
         flights=flights,
         limit=limit
+    )
+    
+    # Save search history
+    db_service = DBService()
+    await db_service.save_flight_search_history(
+        user_id=str(current_user["id"]),
+        flights=flights
     )
     
     print("user: ", current_user)
@@ -61,3 +69,19 @@ async def stream_live_flights(
             'X-Accel-Buffering': 'no'  # Disable buffering in nginx
         }
     )
+
+@router.get("/flights/search-history")
+async def get_flight_search_history(
+    current_user: dict = Depends(get_current_user),
+    limit: int = Query(10, le=100, description="Maximum number of history items to return")
+):
+    """
+    Retrieve user's flight search history.
+    Requires authentication.
+    """
+    db_service = DBService()
+    history = await db_service.get_user_flight_search_history(
+        user_id=str(current_user["id"]),
+        limit=limit
+    )
+    return history
