@@ -58,7 +58,6 @@ anyio==4.7.0
 asgiref==3.8.1
 async-timeout==4.0.3
 attrs==24.3.0
-bson==0.5.10
 certifi==2024.12.14
 charset-normalizer==3.4.1
 click==8.1.8
