@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Data WebSocket Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #flightData {
+            white-space: pre-wrap;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Flight Data WebSocket Client</h1>
+    
+    <div>
+        <label for="authToken">Authentication Token:</label>
+        <input type="text" id="authToken" placeholder="Enter your auth token" style="width: 300px;">
+    </div>
+    
+    <div style="margin-top: 10px;">
+        <label for="flightIcao">Flight ICAO Code:</label>
+        <input type="text" id="flightIcao" placeholder="e.g., ABC123">
+        <button onclick="connectWebSocket()">Connect</button>
+        <button onclick="disconnectWebSocket()">Disconnect</button>
+    </div>
+
+    <h2>Flight Data:</h2>
+    <div id="flightData">No data received yet.</div>
+
+    <script>
+        let websocket;
+
+        function connectWebSocket() {
+    const flightIcao = document.getElementById('flightIcao').value.trim();
+    const authToken = document.getElementById('authToken').value.trim();
+    
+    if (!flightIcao || !authToken) {
+        alert("Please enter both Flight ICAO code and authentication token.");
+        return;
+    }
+
+    // Log connection attempt
+    console.log("Attempting to connect to WebSocket...");
+    console.log("Flight ICAO:", flightIcao);
+    console.log("Token length:", authToken.length);
+
+    const wsUrl = `ws://1640-41-155-14-234.ngrok-free.app/api/v1/ws/flight/${flightIcao}?token=${encodeURIComponent(authToken)}`;
+    console.log("WebSocket URL:", wsUrl);
+
+    websocket = new WebSocket(wsUrl);
+
+    websocket.onopen = () => {
+        console.log("WebSocket connection established successfully");
+        document.getElementById('flightData').innerText = "Connected. Waiting for flight data...";
+        document.getElementById('flightData').className = '';
+    };
+
+    websocket.onmessage = (event) => {
+        console.log("Received message:", event.data);
+        try {
+            const data = JSON.parse(event.data);
+            if (data.error) {
+                console.error("Received error:", data.error);
+                document.getElementById('flightData').innerText = `Error: ${data.error}`;
+                document.getElementById('flightData').className = 'error';
+            } else {
+                document.getElementById('flightData').innerText = JSON.stringify(data, null, 2);
+                document.getElementById('flightData').className = '';
+            }
+        } catch (e) {
+            console.log("Received non-JSON message:", event.data);
+            document.getElementById('flightData').innerText = event.data;
+        }
+    };
+
+    websocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        document.getElementById('flightData').innerText = 
+            "Connection error. Please check your token and try again.";
+        document.getElementById('flightData').className = 'error';
+    };
+
+    websocket.onclose = (event) => {
+        console.log("WebSocket closed:", {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean
+        });
+        
+        let message = "Connection closed: ";
+        if (event.code === 1008) {
+            message += "Authentication failed - " + (event.reason || "Invalid token");
+        } else if (event.code === 1011) {
+            message += "Server error - " + (event.reason || "Unknown error");
+        } else {
+            message += event.reason || "Unknown reason";
+        }
+        
+        document.getElementById('flightData').innerText = message;
+        if (event.code !== 1000) {
+            document.getElementById('flightData').className = 'error';
+        }
+    };
+}
+
+        function disconnectWebSocket() {
+            if (websocket) {
+                websocket.close();
+            }
+        }
+    </script>
+</body>
+</html>

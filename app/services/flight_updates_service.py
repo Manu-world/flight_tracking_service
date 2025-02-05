@@ -56,6 +56,7 @@ class FlightUpdateService:
         while True:
             try:
                 flights = await self.get_live_flights(request)
+                
                 # Convert to dict and add timestamp
                 data = {
                     "timestamp": datetime.utcnow().isoformat(),

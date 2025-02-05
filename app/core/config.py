@@ -11,7 +11,6 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str
     TWILIO_AUTH_TOKEN: str
     TWILIO_FROM_NUMBER: str
-    AVIATION_STACK_KEY_6: str
     
     DEBUG: bool = False
     
@@ -22,6 +21,21 @@ class Settings(BaseSettings):
     # MongoDB Settings
     MONGODB_URL: str
     DB_NAME: str = "BoardAndGo"
+    
+    # External API Configuration
+    AVIATION_STACK_API_KEY: str
+    AVIATION_API_URL: str = "https://api.aviationstack.com/v1/flights"
+    API_TIMEOUT: int = 30
+    
+    # Redis Configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
+    # Rate Limiting
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW: int = 60
+    
+    # Monitoring
+    SENTRY_DSN: Optional[str] = None
     
     
     class Config:
