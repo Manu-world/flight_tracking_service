@@ -3,6 +3,7 @@ import httpx
 from app.core.config import settings
 from app.core.exceptions import FlightRadarAPIException
 import logging
+from app.schemas.flight import AirportDetails
 from app.schemas.flight_updates_schema import FlightPosition, FlightRequest, FlightResponse
 import asyncio
 import json
@@ -17,7 +18,8 @@ class FlightUpdateService:
         self.headers = {
             "Accept": "application/json",
             "Accept-Version": self.settings.FR24_API_VERSION,
-            "Authorization": f"Bearer {self.settings.FR24_API_KEY}"
+            "Authorization": "Bearer 0dbec09dad9576f7e7119ac44b49ea91"
+            # TODO: change to env variable
         }
 
     async def get_live_flights(self, request: FlightRequest) -> List[FlightResponse]:
@@ -127,3 +129,52 @@ class FlightUpdateService:
                 continue
                 
         return flights
+    
+    async def get_airport_details(self, airport_code: str) -> Optional[AirportDetails]:
+        """
+        Fetch detailed airport information by IATA/ICAO code.
+        
+        Args:
+            airport_code (str): IATA or ICAO airport code
+            
+        Returns:
+            Optional[AirportDetails]: Airport details if found, None otherwise
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}static/airports/{airport_code}/full",
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                
+                data = response.json()
+                return AirportDetails(**data)
+                
+        except httpx.HTTPError as e:
+            self.logger.error(f"HTTP error occurred while fetching airport details: {str(e)}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error while fetching airport details: {str(e)}")
+            return None
+    
+    async def update_airport_details(self, flight: FlightResponse) -> FlightResponse:
+        """
+        Enrich flight data with departure and arrival airport details.
+        """
+        if hasattr(flight, 'departure_airport'):
+            dep_details = await self.get_airport_details(flight.departure_airport)
+            if dep_details:
+                flight.departure_airport_details = dep_details
+
+        if hasattr(flight, 'arrival_airport'):
+            arr_details = await self.get_airport_details(flight.arrival_airport)
+            if arr_details:
+                flight.arrival_airport_details = arr_details
+
+        return flight
+
+
+flight_service = FlightUpdateService()
+

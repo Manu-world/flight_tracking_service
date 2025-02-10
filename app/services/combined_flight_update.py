@@ -15,7 +15,7 @@ class CombinedFlightService:
     def __init__(self):
         self.position_service = FlightUpdateService()
         self.flight_service = FlightService(settings)
-        self.POSITION_UPDATE_INTERVAL = 30  # 30 seconds
+        self.POSITION_UPDATE_INTERVAL = 60  # 30 seconds
         self.FLIGHT_INFO_UPDATE_INTERVAL = 120  # 2 minutes
 
     async def fetch_position_data(self, flight_icao: str) -> Optional[Dict]:
@@ -47,7 +47,7 @@ class CombinedFlightService:
             if raw_data:
                 # Format the data using the existing service method
                 formatted_data = await self.flight_service.format_flight_data(raw_data)
-                return jsonable_encoder(formatted_data)
+                return formatted_data
             return None
         except Exception as e:
             logger.error(f"Error fetching flight info: {str(e)}")
@@ -71,8 +71,12 @@ class CombinedFlightService:
                 # Update flight info if needed
                 if update_flight_info:
                     new_flight_info = await self.fetch_flight_info(flight_icao)
-                    if new_flight_info:  # Only update if we got valid data
-                        flight_info = new_flight_info
+                    if new_flight_info:  
+                        flight_info_with_airport_details = await self.position_service.update_airport_details(new_flight_info)
+                        flight_info= flight_info_with_airport_details if flight_info_with_airport_details else flight_info
+                        
+                        
+                        
                     last_flight_info_update = current_time
 
                 # Update position if needed
@@ -111,3 +115,15 @@ class CombinedFlightService:
                 }
                 yield json.dumps(error_data)
                 await asyncio.sleep(5)  # Wait before retry
+                
+                
+combine_flight=CombinedFlightService()
+
+# import asyncio
+
+# if __name__ == "__main__":
+#     async def main():
+#         async for data in combine_flight.stream_combined_flight_data("CA908"):
+#             print(data)  # Process the yielded data as needed
+
+#     asyncio.run(main())               

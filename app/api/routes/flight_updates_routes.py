@@ -116,6 +116,13 @@ async def websocket_flight_data(websocket: WebSocket, flight_icao: str):
         
         combined_service = CombinedFlightService()
         
+         # Save search history
+        db_service = DBService()
+        await db_service.save_flight_search_history(
+            user_id=str(user["id"]),
+            flights=[flight_icao]
+        )
+        
         async for data in combined_service.stream_combined_flight_data(flight_icao):
             try:
                 await websocket.send_text(data)

@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 import httpx
 from fastapi import HTTPException, status
-from app.schemas.flight import FlightDataResponseSchema, LiveDataSchema
+from app.schemas.flight import FlightDataResponseSchema
 from app.core.config import Settings
 from app.core.logging import logger
 from datetime import datetime
@@ -46,8 +46,10 @@ class FlightService:
             logger.info(f"Fetching flight data for {flight_iata}")
             response = await self.client.get(
                 self.settings.AVIATION_API_URL,
+                # TODO: change to env var
                 params={
-                    "access_key": self.settings.AVIATION_STACK_API_KEY,
+                    "access_key": '5753278be02fe9be50e5a0b3b447386f',
+                    # "access_key": self.settings.AVIATION_STACK_API_KEY,
                     "flight_iata": flight_iata
                 }
             )
@@ -95,16 +97,7 @@ class FlightService:
             if departure_time and arrival_time:
                 duration = str(arrival_time - departure_time)
 
-            live_data = flight_info.get("live", {})
-            live = LiveDataSchema(
-                updated_time=self._parse_datetime(live_data.get("updated")).isoformat() if self._parse_datetime(live_data.get("updated")) else None,
-                latitude=self._validate_coordinate(live_data.get("latitude")),
-                longitude=self._validate_coordinate(live_data.get("longitude")),
-                altitude=self._validate_numeric(live_data.get("altitude")),
-                direction=self._validate_direction(live_data.get("direction")),
-                speed_horizontal=self._validate_numeric(live_data.get("speed_horizontal")),
-                speed_vertical=self._validate_numeric(live_data.get("speed_vertical")),
-            )
+            
 
             return FlightDataResponseSchema(
                 flight_number=flight_info.get("flight", {}).get("number"),
@@ -118,7 +111,6 @@ class FlightService:
                 delay=self._validate_numeric(flight_info.get("departure", {}).get("delay")),
                 gate=flight_info.get("departure", {}).get("gate"),
                 terminal=flight_info.get("departure", {}).get("terminal"),
-                live=live,
                 description=self._generate_description(flight_info)
             )
         except Exception as e:
