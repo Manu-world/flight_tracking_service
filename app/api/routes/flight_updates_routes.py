@@ -1,22 +1,26 @@
 import json
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect,HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, Query, HTTPException
+from typing import List, Optional
+from pydantic import constr
 from app.schemas.flight_updates_schema import FlightRequest, FlightResponse
 from app.services.flight_updates_service import FlightUpdateService
 from app.core.exceptions import ValidationError
-from fastapi.responses import StreamingResponse
 from app.core.dependencies import get_current_user  # Import the auth dependency
 from app.db.database_service import DBService  # Add this import
 import logging
-from app.core.auth import AuthMiddleware, authenticate_websocket
-import asyncio
-from app.services.combined_flight_update import CombinedFlightService
+from app.services.rapid_flight_service import RapidFlightService  # Add this import
+from fastapi import status
+from fastapi.responses import JSONResponse, StreamingResponse
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Flight"])
+
+# Rate limiting constants
+RATE_LIMIT = 10  # Max requests per minute
+RATE_LIMIT_WINDOW = 60  # Time window in seconds
 
 @router.get("/flights/live", response_model=List[FlightResponse])
 async def get_live_flights(
@@ -98,68 +102,85 @@ async def stream_live_flights(
         }
     )
 
-@router.websocket("/ws/flight/{flight_icao}")
-async def websocket_flight_data(websocket: WebSocket, flight_icao: str):
-    """WebSocket endpoint for streaming flight data"""
-    connection_active = False
-    
+@router.get("/flights/info/{flight_number}", response_model=FlightResponse)
+async def get_flight_info(
+    flight_number: str,  # Validate flight number length
+    current_user: dict = Depends(get_current_user)
+) -> JSONResponse:
+    """
+    Get flight information by flight number.
+    Requires authentication.
+    """
     try:
-        logger.debug(f"New WebSocket connection attempt for flight {flight_icao}")
-        
-        # Accept the connection first so we can send error messages if needed
-        await websocket.accept()
-        connection_active = True
-        
-        # Authenticate after accepting connection
-        user = await authenticate_websocket(websocket)
-        logger.info(f"User {user['id']} connected to flight {flight_icao}")
-        
-        combined_service = CombinedFlightService()
-        
-         # Save search history
+        # Log the request
+        logger.info(f"Fetching flight info for flight number: {flight_number} by user: {current_user['id']}")
+
+        # Validate flight number format (e.g., alphanumeric)
+        if not flight_number.isalnum():
+            raise ValidationError(detail="Invalid flight number format. Must be alphanumeric.")
+
+        # Initialize services
+        rapid_service = RapidFlightService()
         db_service = DBService()
-        await db_service.save_flight_search_history(
-            user_id=str(user["id"]),
-            flights=[flight_icao]
-        )
+
+        # Fetch flight data
+        flight_data = await rapid_service.fetch_flight_data(flight_number)
         
-        async for data in combined_service.stream_combined_flight_data(flight_icao):
-            try:
-                await websocket.send_text(data)
-            except WebSocketDisconnect:
-                logger.info("Client disconnected during streaming")
-                break
-            except Exception as e:
-                logger.error(f"Error sending data: {str(e)}")
-                break
-                
-    except WebSocketDisconnect:
-        logger.info("Client disconnected normally")
-    
-    except HTTPException as e:
-        logger.error(f"HTTP Exception during WebSocket handling: {e.detail}")
-        if not connection_active:
-            await websocket.accept()
-        try:
-            await websocket.send_text(json.dumps({"error": str(e.detail)}))
-            await websocket.close(code=1008, reason=str(e.detail))
-        except Exception as close_error:
-            logger.error(f"Error during connection closure: {str(close_error)}")
-    
+        # Check if flight data is valid
+        if not flight_data or not flight_data.get(flight_number):
+            logger.warning(f"Flight not found: {flight_number}")
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "status": False,
+                    "data": None,
+                    "message": "Flight not found."
+                }
+            )
+
+        # Save flight info request to user's search history
+        await db_service.save_flight_search_history(
+            user_id=str(current_user["id"]),
+            flights=[flight_number]
+        )
+
+        # Log successful response
+        logger.info(f"Successfully fetched flight info for: {flight_number}")
+        
+        # Extract flight data for the specific flight number
+        flight_info = flight_data.get(flight_number)
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": True,
+                "data": flight_info,
+                "message": "Flight information retrieved successfully."
+            }
+        )
+
+    except ValidationError as ve:
+        logger.error(f"Validation error: {ve.detail}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "status": False,
+                "data": None,
+                "message": ve.detail
+            }
+        )
+
+    except HTTPException as he:
+        # Re-raise HTTPException to maintain FastAPI's error handling
+        raise he
+
     except Exception as e:
-        logger.error(f"Unexpected error in WebSocket handler: {str(e)}", exc_info=True)
-        if not connection_active:
-            await websocket.accept()
-        try:
-            await websocket.send_text(json.dumps({"error": "Internal server error"}))
-            await websocket.close(code=1011)
-        except Exception as close_error:
-            logger.error(f"Error during error handling: {str(close_error)}")
-    
-    finally:
-        # Ensure we close the connection if it's still open
-        if connection_active:
-            try:
-                await websocket.close()
-            except Exception as e:
-                logger.error(f"Error closing websocket: {str(e)}")
+        logger.error(f"Unexpected error fetching flight info: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "status": False,
+                "data": None,
+                "message": "An unexpected error occurred while fetching flight information."
+            }
+        )

@@ -44,7 +44,7 @@ class Database:
     @classmethod
     async def close_db(cls):
         if cls.client is not None:
-            await cls.client.close()
+            cls.client.close()
         else:
             logging.warning("Attempted to close a database connection, but no client was initialized.")
     

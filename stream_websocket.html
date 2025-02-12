@@ -59,7 +59,7 @@
     console.log("Flight ICAO:", flightIcao);
     console.log("Token length:", authToken.length);
 
-    const wsUrl = `ws://63ec-154-161-4-197.ngrok-free.app/api/v1/ws/flight/${flightIcao}?token=${encodeURIComponent(authToken)}`;
+    const wsUrl = `ws://a542-154-161-172-207.ngrok-free.app/api/v1/ws/flight/${flightIcao}?token=${encodeURIComponent(authToken)}`;
     console.log("WebSocket URL:", wsUrl);
 
     websocket = new WebSocket(wsUrl);
