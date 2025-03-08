@@ -50,26 +50,51 @@ class RapidFlightService:
 
     async def stream_flight_data(self, flight_icao: str):
         logger.info(f"Starting flight data stream for {flight_icao}")
+        try:
+            logger.debug(f"Fetching flight data for {flight_icao}")
+            fetch_flight = await self.fetch_flight_data(flight_icao)
+            flight_data = fetch_flight.get(flight_icao)
+            
+            if flight_data:
+                logger.debug(f"Received flight data: {flight_data.get('flight')}")
+                formatted_data = {
+                    "flight_info": jsonable_encoder(flight_data.get("flight")),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                yield json.dumps(formatted_data)
+            else:
+                logger.warning("No flight data received")
+                error_data = {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "error": f"Flight {flight_icao} not found"
+                }
+                yield json.dumps(error_data)
+                return  # Exit the generator when no flight is found
+                
+        except Exception as e:
+            logger.error(f"Error in stream_flight_data: {str(e)}")
+            error_data = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e)
+            }
+            yield json.dumps(error_data)
+            return  # Exit the generator on error
+
         while not self._stop_event.is_set():
             try:
-                logger.debug(f"Fetching flight data for {flight_icao}")
+                await asyncio.sleep(self.UPDATE_INTERVAL)
                 fetch_flight = await self.fetch_flight_data(flight_icao)
-                flight_data=fetch_flight.get(flight_icao)
+                flight_data = fetch_flight.get(flight_icao)
                 
                 if flight_data:
-                    logger.debug(f"Received flight data: {flight_data.get('flight')}")
                     formatted_data = {
                         "flight_info": jsonable_encoder(flight_data.get("flight")),
                         "timestamp": datetime.utcnow().isoformat()
                     }
                     yield json.dumps(formatted_data)
                 else:
-                    logger.warning("No flight data received")
-                    error_data = {
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "error": f"No data received for flight {flight_icao}"
-                    }
-                    yield json.dumps(error_data)
+                    break  # Exit the loop if flight data becomes unavailable
+                    
             except Exception as e:
                 logger.error(f"Error in stream_flight_data: {str(e)}")
                 error_data = {
@@ -77,12 +102,10 @@ class RapidFlightService:
                     "error": str(e)
                 }
                 yield json.dumps(error_data)
+                break  # Exit the loop on error
+                
+        logger.info(f"Stopped flight data stream for {flight_icao}")
 
-            await asyncio.sleep(self.UPDATE_INTERVAL)
-            
-        logger.info(f"Stopped flight data stream for {flight_icao}")    
-            
-            
 rapit_service = RapidFlightService()
 
 # async def main():
