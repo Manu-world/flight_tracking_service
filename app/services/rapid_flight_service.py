@@ -6,13 +6,15 @@ from typing import Dict, Optional
 from fastapi.encoders import jsonable_encoder
 import httpx
 
+from app.core.config import Settings, settings
+
 logger = logging.getLogger(__name__)
 
 class RapidFlightService:
     def __init__(self):
         self.API_URL = "https://flight-data4.p.rapidapi.com/get_flight_info"
         self.API_HEADERS = {
-            "x-rapidapi-key": "fd1408fb1emsha2a0379de856a02p1d8bcdjsnab2192cf86a0",
+            "x-rapidapi-key": settings.RAPID_API_KEY,
             "x-rapidapi-host": "flight-data4.p.rapidapi.com"
         }
         self.UPDATE_INTERVAL = 60  # 60 seconds

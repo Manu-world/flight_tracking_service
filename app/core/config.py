@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str
     TWILIO_AUTH_TOKEN: str
     TWILIO_FROM_NUMBER: str
+    RAPID_API_KEY: str
     
     DEBUG: bool = False
     

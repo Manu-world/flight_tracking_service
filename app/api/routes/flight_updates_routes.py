@@ -130,7 +130,7 @@ async def get_flight_info(
         if not flight_data or not flight_data.get(flight_number):
             logger.warning(f"Flight not found: {flight_number}")
             return JSONResponse(
-                status_code=status.HTTP_200_OK,
+                status_code=status.HTTP_404_NOT_FOUND,
                 content={
                     "status": False,
                     "data": None,
