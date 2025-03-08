@@ -2,15 +2,11 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Flight Agent Notification Fastapi "
+    PROJECT_NAME: str = "BoardAndGo fastapi service"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
-    AVIATIONSTACK_API_KEY: str
-    GROQ_API_KEY: str
-    TWILIO_ACCOUNT_SID: str
-    TWILIO_AUTH_TOKEN: str
-    TWILIO_FROM_NUMBER: str
+    
     RAPID_API_KEY: str
     
     DEBUG: bool = False

@@ -48,8 +48,8 @@ class FlightService:
                 self.settings.AVIATION_API_URL,
                 # TODO: change to env var
                 params={
-                    "access_key": '5753278be02fe9be50e5a0b3b447386f',
-                    # "access_key": self.settings.AVIATION_STACK_API_KEY,
+                    
+                    "access_key": self.settings.AVIATION_STACK_API_KEY,
                     "flight_iata": flight_iata
                 }
             )
