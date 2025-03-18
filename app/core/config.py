@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     
     DEBUG: bool = False
     
-    FR24_API_KEY: str
+    FR24_API_KEY: str = ""
     FR24_BASE_URL: str = "https://fr24api.flightradar24.com/api/"
     FR24_API_VERSION: str = "v1"
     
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     DB_NAME: str = "BoardAndGo"
     
     # External API Configuration
-    AVIATION_STACK_API_KEY: str
+    AVIATION_STACK_API_KEY: str =""
     AVIATION_API_URL: str = "https://api.aviationstack.com/v1/flights"
     API_TIMEOUT: int = 30
     

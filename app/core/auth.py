@@ -136,7 +136,7 @@ async def authenticate_websocket(websocket: WebSocket) -> dict:
             except HTTPException as e:
                 if e.status_code != 503 or attempt == 2:  # Don't retry on non-503 errors or last attempt
                     raise
-                await asyncio.sleep(1 * (attempt + 1))  # Progressive delay
+                await asyncio.sleep(1 * (attempt + 1))  
                 
     except HTTPException as e:
         logger.error(f"Authentication failed: {e.detail}")

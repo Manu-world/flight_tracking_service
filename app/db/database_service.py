@@ -38,47 +38,55 @@ class DBService:
             return self._serialize_doc(doc)
         return None
 
-    async def save_flight_search_history(self, user_id: str, flights: list[str]):
+    async def save_flight_search_history(self, user_id: str, flight_details: dict):
         db = await self._get_db()
         now = datetime.utcnow()
         
         # Fetch the existing document
         existing_doc = await db["flight_search_history"].find_one({"user_id": user_id})
         
+        # Extract flight details
+        flight_entry = {
+            "number": flight_details["flight_number"],
+            "date": now,
+            "flight_iata": flight_details["flight_iata"],
+            "departure": {
+                "city": flight_details["dep_city"],
+                "iata": flight_details["dep_iata"]
+            },
+            "arrival": {
+                "city": flight_details["arr_city"],
+                "iata": flight_details["arr_iata"]
+            },
+            "search_date": now
+        }
+        
         if existing_doc:
-            # If the document exists, check for duplicates
             existing_flights = existing_doc.get("flights", [])
-            updated_flights = []
             
-            # Create a set of existing flight numbers for quick lookup
-            existing_flight_numbers = {flight["number"] for flight in existing_flights}
+            # Check if flight already exists and update it
+            flight_updated = False
+            for i, flight in enumerate(existing_flights):
+                if flight["number"] == flight_entry["number"]:
+                    existing_flights[i] = flight_entry
+                    flight_updated = True
+                    break
             
-            for flight in flights:
-                if flight in existing_flight_numbers:
-                    # If the flight already exists, update its date
-                    for existing_flight in existing_flights:
-                        if existing_flight["number"] == flight:
-                            existing_flight["date"] = now
-                            break
-                else:
-                    # If the flight doesn't exist, add it
-                    updated_flights.append({"number": flight, "date": now})
+            if not flight_updated:
+                existing_flights.append(flight_entry)
             
-            # Combine the updated existing flights with the new flights
-            updated_flights = existing_flights + updated_flights
-            
-            # Update the document with the new flights array
-            result = await db["flight_search_history"].update_one(
+            # Update the document
+            await db["flight_search_history"].update_one(
                 {"user_id": user_id},
-                {"$set": {"flights": updated_flights}},
-                upsert=True  # Create if doesn't exist
+                {"$set": {"flights": existing_flights}},
+                upsert=True
             )
         else:
-            # If the document doesn't exist, create a new one with the flights
-            new_flights = [{"number": flight, "date": now} for flight in flights]
-            result = await db["flight_search_history"].insert_one(
-                {"user_id": user_id, "flights": new_flights}
-            )
+            # Create new document
+            await db["flight_search_history"].insert_one({
+                "user_id": user_id,
+                "flights": [flight_entry]
+            })
         
         # Fetch and return the updated document
         updated_doc = await db["flight_search_history"].find_one({"user_id": user_id})
